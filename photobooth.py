@@ -29,7 +29,7 @@ def get_state():
 class MyRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         print("GET request!", self.path)
-        if self.path == '/latest.jpeg':
+        if self.path == '/latest.jpg':
             print("redirect to:", '/' + latest_image)
             self.path = '/' + latest_image
         elif self.path == '/kiosk':
