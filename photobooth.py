@@ -4,56 +4,66 @@ import RPi.GPIO as GPIO
 import picamera
 import time
 import subprocess
-from http.server import SimpleHTTPRequestHandler, HTTPServer
-from threading import Thread
+import shutil
+import threading
 
 # Physical pin 13
 GPIO_PIN = 27
 
-STATES = {
-    'WELCOME' : '/welcome.html',
-    'PROCESSING' : '/processing.html',
-    'RESULT' : '/result.html'
-}
-current_state = STATES['WELCOME']
-
 # Camera setup
 camera = picamera.PiCamera()
 camera.resolution = (1200, 720)
-latest_image = ''
 
-def get_state():
-    return current_state
+# Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
+class ButtonHandler(threading.Thread):
+    def __init__(self, pin, func, edge='both', bouncetime=200):
+        super().__init__(daemon=True)
 
-# HTTP Server request handler
-class MyRequestHandler(SimpleHTTPRequestHandler):
-    def do_GET(self):
-        print("GET request!", self.path)
-        if self.path == '/latest.jpeg':
-            print("redirect to:", '/' + latest_image)
-            self.path = '/' + latest_image
-        elif self.path == '/kiosk':
-            print("State is", get_state())
-            if get_state() == STATES['RESULT']:
-                print("result display")
-                self.path = '/' + latest_image
-            else:
-                self.path = get_state()
-        return SimpleHTTPRequestHandler.do_GET(self)
+        self.edge = edge
+        self.func = func
+        self.pin = pin
+        self.bouncetime = float(bouncetime)/1000
 
+        self.lastpinval = GPIO.input(self.pin)
+        self.lock = threading.Lock()
+
+    def __call__(self, *args):
+        if not self.lock.acquire(blocking=False):
+            return
+
+        t = threading.Timer(self.bouncetime, self.read, args=args)
+        t.start()
+
+    def read(self, *args):
+        pinval = GPIO.input(self.pin)
+
+        if (
+                ((pinval == 0 and self.lastpinval == 1) and
+                 (self.edge in ['falling', 'both'])) or
+                ((pinval == 1 and self.lastpinval == 0) and
+                 (self.edge in ['rising', 'both']))
+        ):
+            self.func(*args)
+
+        self.lastpinval = pinval
+        self.lock.release()
 
 #GPIO Callback
 def onButton(channel):
-        global latest_image, current_state
-        print("Callback Triggered")
-        if channel == GPIO_PIN:
-            print("Taking photo")
-            latest_image = 'image{:0}.jpg'.format(int(time.time()))
-            camera.capture(latest_image)
-            print(latest_image)
-        current_state = STATES["PROCESSING"]
-        # Reload webpage
-        subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "ctrl+F5"])
+    print("Callback Triggered")
+    if channel == GPIO_PIN:
+        print("Taking photo")
+        latest_image = 'image{:0}.jpg'.format(int(time.time()))
+        camera.capture(latest_image)
+        print(latest_image)
+        shutil.copyfile(latest_image, "latest.jpg")
+    
+    # Move webpage to Processing
+    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "P"])
+    time.sleep(5)
+    # Move webpage to Welcome
+    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "W"])
+    
 
 def main():
     global httpd
@@ -62,16 +72,13 @@ def main():
     print("Starting...")
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(GPIO_PIN, GPIO.FALLING, callback=onButton, bouncetime=1000)
+    cb = ButtonHandler(GPIO_PIN, onButton, edge='rising', bouncetime=20)
+    cb.start()
+    GPIO.add_event_detect(GPIO_PIN, GPIO.RISING, callback=cb)
 
-    httpd = HTTPServer(('', 8000), MyRequestHandler)
-
-    chrome_proc = subprocess.Popen(["chromium-browser", "http://localhost:8000/kiosk"])
-    httpd.serve_forever()
+    print("Init chrome")
+    chrome_proc = subprocess.Popen(["chromium-browser", "--noerrdialogs", "--incognito", "--kiosk", "http://localhost:80/welcome.html"])
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Exiting...")
-        exit(0)
+    main()
+    input()
