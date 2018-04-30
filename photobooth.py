@@ -17,7 +17,7 @@ camera.resolution = (820, 1232)
 camera.awb_mode='fluorescent'
 
 # Background files
-backgrounds_path = 'Blender/backgrounds'
+backgrounds_path = 'Blender/backgrounds/'
 backgrounds = ['moon_crop.jpg', 'the_scream_crop.jpg']
 
 # Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
@@ -56,7 +56,7 @@ class ButtonHandler(threading.Thread):
 
 # Launch Blender/process render
 def doRender():
-    shutil.copyfile(random.choice(backgrounds), 'background.jpg')
+    shutil.copyfile(backgrounds_path + random.choice(backgrounds), 'background.jpg')
     arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
     subprocess.run(arglist)
 
