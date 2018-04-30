@@ -1,5 +1,6 @@
 # Temporary files
-*.png
+render1.png
+results/
 image*.jpg
 background.jpg
 latest.jpg
