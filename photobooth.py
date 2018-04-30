@@ -12,7 +12,8 @@ GPIO_PIN = 27
 
 # Camera setup
 camera = picamera.PiCamera()
-camera.resolution = (1640, 1232)
+camera.resolution = (820, 1232)
+camera.awb_mode='fluorescent'
 
 # Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
 class ButtonHandler(threading.Thread):
@@ -50,7 +51,7 @@ class ButtonHandler(threading.Thread):
 
 # Launch Blender/process render
 def doRender():
-    arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render.png', '-f', '1']
+    arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
     subprocess.run(arglist)
 
 #GPIO Callback
