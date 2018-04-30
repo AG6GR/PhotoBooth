@@ -12,7 +12,7 @@ GPIO_PIN = 27
 
 # Camera setup
 camera = picamera.PiCamera()
-camera.resolution = (1200, 720)
+camera.resolution = (1640, 1232)
 
 # Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
 class ButtonHandler(threading.Thread):
@@ -48,6 +48,11 @@ class ButtonHandler(threading.Thread):
         self.lastpinval = pinval
         self.lock.release()
 
+# Launch Blender/process render
+def doRender():
+    arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render.png', '-f', '1']
+    subprocess.run(arglist)
+
 #GPIO Callback
 def onButton(channel):
     print("Callback Triggered")
@@ -60,10 +65,13 @@ def onButton(channel):
     
     # Move webpage to Processing
     subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "P"])
-    time.sleep(5)
+    doRender()
+    # Move webpage to Result
+    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "R"])
+    time.sleep(15)
     # Move webpage to Welcome
     subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "W"])
-    
+
 
 def main():
     global httpd

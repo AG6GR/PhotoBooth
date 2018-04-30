@@ -6,5 +6,8 @@ document.addEventListener('keydown', function(event) {
     else if(event.keyCode == 80) {
     	// P key
         window.open('processing.html','_self')
+    } else if(event.keyCode == 82) {
+    	// R key
+        window.open('result.html','_self')
     }
 });
