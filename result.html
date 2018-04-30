@@ -16,12 +16,21 @@
     <div class="center-container">
       <center>
         <h1>Result:</h1>
-        <img src="render1.png" height=400px>
+        <img src="render1.png" height=300px>
+        <br>
+        <br>
+        <a role="button" class="btn btn-primary" href="welcome.html">Finished</a>
       </center>
     </div>
 
     <!-- Optional JavaScript -->
     <script src="keynav.js"></script>
     <script src="bootstrap-4.1.0-dist/js/bootstrap.min.js"></script>
+    <script>
+      function redirectTimeout() {
+        window.open('welcome.html','_self')
+      }
+      setTimeout(redirectTimeout, 5000)
+    </script>
   </body>
 </html>

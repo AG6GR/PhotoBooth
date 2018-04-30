@@ -7,6 +7,7 @@ import subprocess
 import shutil
 import threading
 import random
+from os import mkdir
 
 # Physical pin 13
 GPIO_PIN = 27
@@ -56,10 +57,15 @@ class ButtonHandler(threading.Thread):
         self.lock.release()
 
 # Launch Blender/process render
-def doRender():
+def do_render():
     shutil.copyfile(backgrounds_path + random.choice(backgrounds), 'background.jpg')
     arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
     subprocess.run(arglist)
+
+def make_static():
+    output_dir = 'results/result' + str(int(time.time()))
+    mkdir(output_dir)
+    shutil.copyfile('render1.png', output_dir+'/result.png')
 
 #GPIO Callback
 def onButton(channel):
@@ -73,13 +79,10 @@ def onButton(channel):
     
     # Move webpage to Processing
     subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "P"])
-    doRender()
+    do_render()
+    make_static()
     # Move webpage to Result
     subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "R"])
-    time.sleep(15)
-    # Move webpage to Welcome
-    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "W"])
-
 
 def main():
     global httpd
