@@ -1,6 +1,8 @@
 # Temporary files
 *.png
-*.jpg
+image*.jpg
+background.jpg
+latest.jpg
 *.jpeg
 *.blend1
 
