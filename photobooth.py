@@ -49,13 +49,13 @@ class ButtonHandler(threading.Thread):
 class PhotoBooth:
 
     # Physical pin 13
-    self.GPIO_PIN = 27
+    GPIO_PIN = 27
 
     # Background files
-    self.backgrounds_path = 'Blender/backgrounds/'
-    self.backgrounds = ['moon_crop.jpg', 'the_scream_crop.jpg']
+    backgrounds_path = 'Blender/backgrounds/'
+    backgrounds = ['moon_crop.jpg', 'the_scream_crop.jpg']
 
-    self.hostname = 'photobooth.lan/'
+    hostname = 'photobooth.lan/'
 
     def __init__(self):
         # Camera setup
@@ -65,19 +65,19 @@ class PhotoBooth:
         self.camera.awb_gains = (363/256, 531/256)
 
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        self.cb = ButtonHandler(self.GPIO_PIN, self.onButton, edge='rising', bouncetime=20)
+        GPIO.setup(PhotoBooth.GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self.cb = ButtonHandler(PhotoBooth.GPIO_PIN, self.onButton, edge='rising', bouncetime=20)
         self.cb.start()
-        GPIO.add_event_detect(self.GPIO_PIN, GPIO.RISING, callback=cb)
+        GPIO.add_event_detect(PhotoBooth.GPIO_PIN, GPIO.RISING, callback=cb)
 
         self.latest_image = ''
         self.latest_info = {
-            'resultdir': self.hostname + 'results/'
+            'resultdir': PhotoBooth.hostname + 'results/'
         }
 
     # Launch Blender/process render
     def do_render(self):
-        shutil.copyfile(backgrounds_path + random.choice(backgrounds), 'background.jpg')
+        shutil.copyfile(PhotoBooth.backgrounds_path + random.choice(PhotoBooth.backgrounds), 'background.jpg')
         arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
         subprocess.run(arglist)
 
@@ -91,17 +91,17 @@ class PhotoBooth:
         shutil.copyfile('Blender/composite.blend', output_dir+'/composite.blend')
         shutil.copyfile('result_static.html', output_dir+'/result_static.html')
 
-        qr = qrcode.make(output_dir+'/result_static.html')
+        qr = qrcode.make(PhotoBooth.hostname + output_dir+'/result_static.html')
         qr.save('qr_latest.png')
 
-        self.latest_info.resultdir = output_dir
+        self.latest_info.resultdir = PhotoBooth.hostname + output_dir
         with open('latest.json', 'w') as outfile:
             json.dump(self.latest_info, outfile)
 
     #GPIO Callback
     def onButton(channel):
         print("Callback Triggered")
-        if channel == self.GPIO_PIN:
+        if channel == PhotoBooth.GPIO_PIN:
             print("Taking photo")
             self.latest_image = 'image{:0}.jpg'.format(int(time.time()))
             self.camera.capture(self.latest_image)
