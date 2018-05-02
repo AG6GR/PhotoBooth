@@ -8,19 +8,9 @@ import shutil
 import threading
 import random
 from os import mkdir
-
-# Physical pin 13
-GPIO_PIN = 27
-
-# Camera setup
-camera = picamera.PiCamera()
-camera.resolution = (820, 1232)
-camera.awb_mode='off'
-camera.awb_gains=(363/256, 531/256)
-
-# Background files
-backgrounds_path = 'Blender/backgrounds/'
-backgrounds = ['moon_crop.jpg', 'the_scream_crop.jpg']
+from datetime import datetime
+import json
+import qrcode
 
 # Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
 class ButtonHandler(threading.Thread):
@@ -56,44 +46,79 @@ class ButtonHandler(threading.Thread):
         self.lastpinval = pinval
         self.lock.release()
 
-# Launch Blender/process render
-def do_render():
-    shutil.copyfile(backgrounds_path + random.choice(backgrounds), 'background.jpg')
-    arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
-    subprocess.run(arglist)
+class PhotoBooth:
 
-def make_static():
-    output_dir = 'results/result' + str(int(time.time()))
-    mkdir(output_dir)
-    shutil.copyfile('render1.png', output_dir+'/result.png')
+    # Physical pin 13
+    self.GPIO_PIN = 27
 
-#GPIO Callback
-def onButton(channel):
-    print("Callback Triggered")
-    if channel == GPIO_PIN:
-        print("Taking photo")
-        latest_image = 'image{:0}.jpg'.format(int(time.time()))
-        camera.capture(latest_image)
-        print(latest_image)
-        shutil.copyfile(latest_image, "latest.jpg")
-    
-    # Move webpage to Processing
-    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "P"])
-    do_render()
-    make_static()
-    # Move webpage to Result
-    subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "R"])
+    # Background files
+    self.backgrounds_path = 'Blender/backgrounds/'
+    self.backgrounds = ['moon_crop.jpg', 'the_scream_crop.jpg']
+
+    self.hostname = 'photobooth.lan/'
+
+    def __init__(self):
+        # Camera setup
+        self.camera = picamera.PiCamera()
+        self.camera.resolution = (820, 1232)
+        self.camera.awb_mode = 'off'
+        self.camera.awb_gains = (363/256, 531/256)
+
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        self.cb = ButtonHandler(self.GPIO_PIN, self.onButton, edge='rising', bouncetime=20)
+        self.cb.start()
+        GPIO.add_event_detect(self.GPIO_PIN, GPIO.RISING, callback=cb)
+
+        self.latest_image = ''
+        self.latest_info = {
+            'resultdir': self.hostname + 'results/'
+        }
+
+    # Launch Blender/process render
+    def do_render(self):
+        shutil.copyfile(backgrounds_path + random.choice(backgrounds), 'background.jpg')
+        arglist = ['blender', '-b', 'Blender/GeneratePreview.blend', '-x', '0', '-o', './render#.png', '-f', '1']
+        subprocess.run(arglist)
+
+    def make_static(self):
+        output_dir = 'results/result{:%H%M%S}'.format(datetime.now())
+        mkdir(output_dir)
+        shutil.copyfile('render1.png', output_dir+'/result.png')
+        shutil.copyfile('background.jpg', output_dir+'/background.jpg')
+        shutil.copyfile('ref.jpg', output_dir+'/ref.jpg')
+        shutil.copyfile(self.latest_image, output_dir+'/original.png')
+        shutil.copyfile('Blender/composite.blend', output_dir+'/composite.blend')
+        shutil.copyfile('result_static.html', output_dir+'/result_static.html')
+
+        qr = qrcode.make(output_dir+'/result_static.html')
+        qr.save('qr_latest.png')
+
+        self.latest_info.resultdir = output_dir
+        with open('latest.json', 'w') as outfile:
+            json.dump(self.latest_info, outfile)
+
+    #GPIO Callback
+    def onButton(channel):
+        print("Callback Triggered")
+        if channel == self.GPIO_PIN:
+            print("Taking photo")
+            self.latest_image = 'image{:0}.jpg'.format(int(time.time()))
+            self.camera.capture(self.latest_image)
+            print(self.latest_image)
+            shutil.copyfile(self.latest_image, "latest.jpg")
+        
+        # Move webpage to Processing
+        subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "P"])
+        self.do_render()
+        self.make_static()
+        # Move webpage to Result
+        subprocess.run(["xdotool", "search", "--desktop", "0", "--class", "chromium", "windowactivate", "--sync", "key", "R"])
 
 def main():
-    global httpd
-    global server_thread
 
     print("Starting...")
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    cb = ButtonHandler(GPIO_PIN, onButton, edge='rising', bouncetime=20)
-    cb.start()
-    GPIO.add_event_detect(GPIO_PIN, GPIO.RISING, callback=cb)
+    pb = PhotoBooth()
 
     print("Init chrome")
     chrome_proc = subprocess.Popen(["chromium-browser", "--noerrdialogs", "--incognito", "--kiosk", "http://localhost:80/welcome.html"])
