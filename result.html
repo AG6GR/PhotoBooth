@@ -19,21 +19,43 @@
         <img src="render1.png" height=300px>
         <br>
         <br>
-        <h2>Download results at</h2>
-        <h5>photobooth.lan/results/result123456</h5>
+        <h2>Download results on</h2>
+        <h5>Wi-Fi network "PhotoBooth"<br><div id='result_link'>photobooth.lan/results/result123456</div></h5>
+        <img src="qr_latest.png" height = 150px>
+        <br>
         <br>
         <a role="button" class="btn btn-primary" href="welcome.html">Finished</a>
       </center>
     </div>
 
     <!-- Optional JavaScript -->
-    <script src="keynav.js"></script>
-    <script src="bootstrap-4.1.0-dist/js/bootstrap.min.js"></script>
     <script>
+      function reqListener () {
+        console.log(this.responseText)
+        // Fill in link/image addressses
+        var result_link = JSON.parse(this.responseText).result_link
+        console.log(result_link)
+
+        document.getElementById("result_link").innerHTML = result_link;
+      }
+
+      function getLatest() {
+        console.log("sending")
+        var Httpreq = new XMLHttpRequest(); // a new request
+        Httpreq.addEventListener("load", reqListener);
+        Httpreq.open("GET", "http://localhost/latest.json");
+        Httpreq.send();
+      }
+
       function redirectTimeout() {
         window.open('welcome.html','_self')
       }
+  
+      console.log('run')
+      getLatest()
       //setTimeout(redirectTimeout, 5000)
     </script>
+    <script src="keynav.js"></script>
+    <script src="bootstrap-4.1.0-dist/js/bootstrap.min.js"></script>
   </body>
 </html>

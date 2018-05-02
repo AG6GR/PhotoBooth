@@ -11,6 +11,7 @@ from os import mkdir
 from datetime import datetime
 import json
 import qrcode
+from zipfile import ZipFile
 
 # Button debouncing class from https://raspberrypi.stackexchange.com/questions/76667/debouncing-buttons-with-rpi-gpio-too-many-events-detected
 class ButtonHandler(threading.Thread):
@@ -68,11 +69,11 @@ class PhotoBooth:
         GPIO.setup(PhotoBooth.GPIO_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         self.cb = ButtonHandler(PhotoBooth.GPIO_PIN, self.onButton, edge='rising', bouncetime=20)
         self.cb.start()
-        GPIO.add_event_detect(PhotoBooth.GPIO_PIN, GPIO.RISING, callback=cb)
+        GPIO.add_event_detect(PhotoBooth.GPIO_PIN, GPIO.RISING, callback=self.cb)
 
         self.latest_image = ''
         self.latest_info = {
-            'resultdir': PhotoBooth.hostname + 'results/'
+            'result_link': PhotoBooth.hostname + 'results/'
         }
 
     # Launch Blender/process render
@@ -87,19 +88,27 @@ class PhotoBooth:
         shutil.copyfile('render1.png', output_dir+'/result.png')
         shutil.copyfile('background.jpg', output_dir+'/background.jpg')
         shutil.copyfile('ref.jpg', output_dir+'/ref.jpg')
-        shutil.copyfile(self.latest_image, output_dir+'/original.png')
+        shutil.copyfile(self.latest_image, output_dir+'/original.jpg')
         shutil.copyfile('Blender/composite.blend', output_dir+'/composite.blend')
-        shutil.copyfile('result_static.html', output_dir+'/result_static.html')
+        shutil.copyfile('result_static.html', output_dir+'/index.html')
 
-        qr = qrcode.make(PhotoBooth.hostname + output_dir+'/result_static.html')
+        qr = qrcode.make(PhotoBooth.hostname + output_dir+'/index.html')
         qr.save('qr_latest.png')
 
-        self.latest_info.resultdir = PhotoBooth.hostname + output_dir
+        zf = ZipFile(output_dir+'/all_files.zip', mode='w')
+        zf.write(output_dir+'/result.png', arcname='result.png')
+        zf.write(output_dir+'/background.jpg', arcname='background.jpg')
+        zf.write(output_dir+'/ref.jpg', arcname='ref.jpg')
+        zf.write(output_dir+'/original.jpg', arcname='original.jpg')
+        zf.write(output_dir+'/composite.blend', arcname='composite.blend')
+        zf.close()
+
+        self.latest_info['result_link'] = PhotoBooth.hostname + output_dir
         with open('latest.json', 'w') as outfile:
             json.dump(self.latest_info, outfile)
 
     #GPIO Callback
-    def onButton(channel):
+    def onButton(self, channel):
         print("Callback Triggered")
         if channel == PhotoBooth.GPIO_PIN:
             print("Taking photo")
